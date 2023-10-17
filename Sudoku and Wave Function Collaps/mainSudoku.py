@@ -10,6 +10,30 @@ board = [
     [0,4,9,2,0,6,0,0,7]
 ]
 
+nums = range(1,10)
+point = (0,6)
+for i in range(len(board)):
+    print()
+
+def solveBoard(boardCheck):
+    emptyPoint = find_empty(boardCheck)
+    if not emptyPoint:
+        return True
+    else:
+        row, col = emptyPoint
+    
+    for i in range(1,10):
+        if valid(bo, i, (row, col)):
+            bo[row][col] = i
+
+            if solve(bo):
+                return True
+
+            bo[row][col] = 0
+
+    return False
+    
+
 def print_board(bo):
     for i in range(len(bo)):
         if i % 3 == 0 and i != 0:
