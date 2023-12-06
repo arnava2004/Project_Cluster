@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+<!--&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&-->
+<!-- Header of the HTML file. Usually, all libraries and scripts are    -->
+<!-- placed in this section of the HTML file.                           -->
+<!--&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&-->
+<head>
+    <!--    MathJax is used to show equations! 
+            The following section sets up the MathJax environment.  -->
+    <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+      tex2jax: {inlineMath: [['$','$'], ['\\(','\\)']]},
+      displayAlign: "left",
+      TeX :{
+        style: {
+            "padding": "10px 20px",
+        }
+
+      }
+    });
+    </script>
+    <!--    The following line imports the MathJax library          -->
+    <script 
+        type="text/javascript" async 
+        src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_CHTML">
+    </script>
+    <!-- including AkPlot.js for plotting purposes. -->
+    <script src='AkPlot.js'></script>
+</head>
+
+<!--&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&-->
+<!-- Main body of the html file                                         -->
+<!--&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&-->
+<body onload='init();'> <!--    when the HTML file is loaded the function 
+                                init() is executed.                     -->
+<h1>FitzHugh-Nagumo</h1>   <!-- Header of the page             -->
+<!-- The following canvas is used for plotting -->
+<canvas id="c0"             
+        width="500" 
+        height="400" 
+        style='border:2px solid #eeeeee'>
+</canvas>
+
+<canvas id="c1"             
+        width="500" 
+        height="400" 
+        style='border:2px solid #eeeeee'>
+</canvas></br>
+
+<p>
+    \[
+        \frac{du}{dt} = u(1-u)(u-a) - v 
+    \]
+
+    \[
+        \frac{dv}{dt} = \epsilon (bu-v+\delta)
+    \]
+</p>
+<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->
+<!-- the table of values                                                -->
+<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->
+<table>
+    <tr>
+        <td>$a$</td>
+        <td><input  type='number' id='a' 
+                    step=0.01 value=0.1 onchange='init()'></td>
+    </tr>
+    <tr>
+        <td>$b$</td>
+        <td><input  type='number' id='b' 
+                    step=0.01 value=0.3 
+                    onchange='init()'></td>
+    </tr>
+    <tr>
+        <td>$\delta$</td>
+        <td><input  type='number' id='delta' 
+                    step=0.01 value=0.0 
+                    onchange='init()'></td>
+    </tr>
+    <tr>
+        <td>$\epsilon$</td>
+        <td><input  type='number' id='epsilon' 
+                    step=0.01 value=0.01 
+                    onchange='init()'></td>
+    </tr>
+    <tr>
+        <td>$u_0$</td>
+        <td><input  type='number' id='u0' 
+                    step=0.01 value=1.5 
+                    onchange='init()'></td>
+    </tr>
+    <tr>
+        <td>$v_0$</td>
+        <td><input  type='number' id='v0' 
+                    step=0.01 value=0 
+                    onchange='init()'></td>
+    </tr>
+    <tr>
+        <td>$\Delta t$</td>
+        <td><input  type='number' id='dt' 
+                    value=0.1 
+                    onchange='init()'></td>
+    </tr>
+    <tr>
+        <td>Final Time</td>
+        <td><input  type='number' id='finalTime' 
+                    value=500 
+                    onchange='init()'></td>
+    </tr>
+
+    <tr>
+        <td>wait</td>
+        <td><input  type='number' id='wait' value=5 ></td>
+    </tr>
+</table>
+
+<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->
+<!-- Computational script                                               -->
+<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->
+<script>
+
+function getNum(id){ /* gets the number from the GUI using the id */
+    return eval(document.getElementById(id).value) ;
+}
+
+/*========================================================================
+ * creating the map
+ *========================================================================
+ */ 
+var c0 = document.getElementById('c0') ;
+var c1 = document.getElementById('c1') ;
+var plt0 = new Plot(c0) ;
+var plt1 = new Plot(c1) ;
+plt0.margins.left = 70 ;
+plt0.margins.right = 20 ;
+plt0.margins.top=10 ;
+plt0.xlabel = 'u' ;
+plt0.ylabel = 'v';
+plt0.yticks.precision = 2 ;
+plt0.xticks.precision = 2 ;
+plt0.xticks.noDivs = 5 ;
+
+ur = {min:-0.5, max:1.} ;
+vr = {min:-0.5, max:.5} ;
+plt0.xlimits = [ur.min,ur.max] ;
+plt0.ylimits = [vr.min,vr.max] ;
+plt0.legend = 'on' ;
+plt0.grid = 'on' ;
+plt0.legend.location = [c0.width-150,20] ;
+plt0.init() ;
+function click(e){
+    document.getElementById('u0').value = e.x ;
+    document.getElementById('v0').value = e.y ;
+    init() ;
+}
+plt0.addClickListener(click) ;
+
+plt1.margins.left = 80 ;
+plt1.margins.right = 20 ;
+plt1.xticks.noDivs = 5 ;
+plt1.xlimits = [0,getNum('finalTime')] ;
+plt1.ylimits = [-2,2.] ;
+plt1.xlabel = 't' ;
+plt1.ylabel = 'u, v' ;
+plt1.xticks.precision = 0 ;
+plt1.yticks.precision = 2 ;
+plt1.legend = 'on' ;
+plt1.grid = 'on' ;
+plt1.legend.location = [c1.width-70,20] ;
+plt1.init() ;
+
+var dudtp = plt0.addCurveFromPoints(); dudtp.name = 'du/dt' ;
+var dvdtp = plt0.addCurveFromPoints(); dvdtp.name = 'dv/dt' ;
+var trj = plt0.addCurveFromPoints() ; trj.name ='Trajectory' ;
+
+var ucrv = plt1.addCurveFromPoints(); ucrv.name = 'u' ;
+var vcrv = plt1.addCurveFromPoints(); vcrv.name = 'v' ;
+
+var a, b, delta, epsilon ;
+var u, v, u0 , v0, dt ;
+
+function init(){
+    plt0.reset() ;
+    plt1.reset() ;
+    a = getNum('a') ;
+    b = getNum('b') ;
+    delta = getNum('delta') ;
+    epsilon = getNum('epsilon') ;
+    for(var u=ur.min; u<ur.max; u+=0.01){
+        v = u*(1.-u)*(u-a) ;
+        dudtp.plot(u,v) ;
+        v = b*u+delta ;
+        dvdtp.plot(u,v) ;
+    }
+    
+    u0 = getNum('u0') ;
+    v0 = getNum('v0') ;
+    dt = getNum('dt') ;
+    run() ;
+}
+function run(){
+    u = u0 ;
+    v = v0 ;
+    plt1.xlimits = [0, getNum('finalTime')] ;
+    plt1.reset() ;
+
+    for(var t=0 ; t<getNum('finalTime'); t+=dt){
+        trj.plot(u,v) ;
+        ucrv.plot(t,u) ;
+        vcrv.plot(t,v) ;
+        var du2dt = u*(1.-u)*(u-a) - v ;
+        var dv2dt = epsilon*(b*u - v + delta ) ;
+        u += dt*du2dt ;
+        v += dt*dv2dt ;
+    }
+} ;
+
+</script>
+</body>
+</html>

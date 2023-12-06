@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Vicsek flocking demo</title>
+    <script>
+      'use strict';
+
+      let canvas;
+      let ctx;
+      let order_val;
+
+      let in_num;
+      let in_size;
+      let in_noise;
+      let in_speed;
+
+      const shape_height = 0.5;
+      const shape_base = 0.25;
+
+      const max_agents = 1000;
+      const pos = new Float32Array(2*max_agents);
+      const dir = new Float32Array(max_agents);
+
+      let num_agents = 100;
+      let size = 50;
+      let speed = 0.03;
+      let noise_mag = 0.2;
+      const radius = 1;
+
+      function set_context() {
+        canvas = document.getElementById("display-canvas");
+        ctx = canvas.getContext("2d");
+        order_val = document.getElementById("order-val");
+
+        in_num = document.getElementById("param-num-agents");
+        in_size = document.getElementById("param-size");
+        in_noise = document.getElementById("param-noise");
+        in_speed = document.getElementById("param-speed");
+      }
+
+      function initialize() {
+        for (let i = 0; i < max_agents; ++i) {
+          pos[2*i] = size*Math.random();
+          pos[2*i+1] = size*Math.random();
+          dir[i] = 2*Math.PI * Math.random() - Math.PI;
+        }
+      }
+
+      function distance(i, j) {
+        const ix = pos[2*i];
+        const iy = pos[2*i+1];
+        const jx = pos[2*j];
+        const jy = pos[2*j+1];
+
+        let dx = Math.abs(ix - jx);
+        if (dx > 0.5*size) dx -= size;
+        let dy = Math.abs(iy - jy);
+        if (dy > 0.5*size) dy -= size;
+
+        return Math.sqrt(dx*dx+dy*dy);
+      }
+
+      function neighbor_avg(i) {
+        let csum = 0;
+        let ssum = 0;
+        let count = 0;
+        for (let j = 0; j < num_agents; ++j) {
+          if (distance(i, j) < radius) {
+            csum += Math.cos(dir[j]);
+            ssum += Math.sin(dir[j]);
+            count += 1;
+          }
+        }
+
+        return count === 0 ? 0 : Math.atan2(ssum/count, csum/count);
+      }
+
+      function unit_velocity(i) {
+        const phase = dir[i];
+        return [Math.cos(phase), Math.sin(phase)];
+      }
+
+      function noise() {
+        return noise_mag*Math.random()-0.5*noise_mag;
+      }
+
+      function update() {
+        for (let i = 0; i < num_agents; ++i) {
+          const uvel = unit_velocity(i);
+          pos[2*i] += speed * uvel[0];
+          pos[2*i+1] += speed * uvel[1];
+          dir[i] = neighbor_avg(i) + noise();
+
+          if (pos[2*i] >= size) pos[2*i] -= size;
+          else if (pos[2*i] < 0) pos[2*i] += size;
+          if (pos[2*i+1] >= size) pos[2*i+1] -= size;
+          else if (pos[2*i+1] < 0) pos[2*i+1] += size;
+
+          if (dir[i] >= Math.PI) dir[i] -= Math.PI;
+          else if (dir[i] < -Math.PI) dir[i] += Math.PI;
+        }
+      }
+
+      function get_order() {
+        let avgx = 0;
+        let avgy = 0;
+        for (let i = 0; i < num_agents; ++i) {
+          avgx += Math.cos(dir[i]);
+          avgy += Math.sin(dir[i]);
+        }
+        return Math.sqrt(avgx*avgx + avgy*avgy) / num_agents
+      }
+
+      function draw_triangle(i) {
+        const [vx, vy] = unit_velocity(i);
+        const px = pos[2*i];
+        const py = pos[2*i+1];
+
+        const p1x = px + 0.5*shape_height*vx;
+        const p1y = py + 0.5*shape_height*vy;
+
+        const bx = px - 0.5*shape_height*vx;
+        const by = py - 0.5*shape_height*vy;
+
+        const p2x = bx + 0.5*shape_base*vy;
+        const p2y = by - 0.5*shape_base*vx;
+
+        const p3x = bx - 0.5*shape_base*vy;
+        const p3y = by + 0.5*shape_base*vx;
+
+        const wscale = canvas.width / size
+        const hscale = canvas.height / size
+
+        ctx.beginPath();
+        ctx.moveTo(wscale*p1x, hscale*p1y);
+        ctx.lineTo(wscale*p2x, hscale*p2y);
+        ctx.lineTo(wscale*p3x, hscale*p3y);
+        ctx.fill();
+      }
+
+      function draw_all() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        for (let i = 0; i < num_agents; ++i) {
+          draw_triangle(i);
+        }
+      }
+
+      function read_input() {
+        num_agents = Number(in_num.value);
+        size = Number(in_size.value);
+        noise_mag = Number(in_noise.value);
+        speed = Number(in_speed.value);
+      }
+
+      function start() {
+        set_context();
+        read_input();
+        document.getElementById("param-div").oninput = () => read_input();
+        initialize();
+        run();
+      }
+
+      function run() {
+        draw_all();
+        update()
+        order_val.innerHTML = String(get_order().toFixed(2));
+        window.requestAnimationFrame(run)
+      }
+    </script>
+    <style>
+      #display-canvas {
+        border: 1px solid black;
+      }
+
+      #display-canvas-div {
+        float: left;
+        margin-right: 2em;
+      }
+
+      div {
+        padding-bottom: 2em;
+      }
+
+      #param-div {
+        display: flex;
+      }
+
+      #grid-container-div {
+        display: grid;
+        grid-template-columns: max-content 1fr max-content max-content max-content;
+        grid-column-gap: 0.5em;
+        padding: 0;
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body onload="start();">
+    <div id="display-canvas-div">
+      <canvas id="display-canvas" width="512" height="512"></canvas>
+    </div>
+    <div id="info-div">
+      Order parameter: <span id="order-val"></span>
+    </div>
+    <div id="param-div">
+      <div id="grid-container-div">
+        <label for="param-num-agents">Number of agents</label>
+        <span></span>
+        <span>1</span>
+        <input id="param-num-agents" type="range" min="1" max="1000" step="1" value="100">
+        <span>1000</span>
+
+        <label for="param-size">Simulation size</label>
+        <span></span>
+        <span>10</span>
+        <input id="param-size" type="range" min="10" max="100" step="1" value="50">
+        <span>100</span>
+
+        <label for="param-noise">Noise magnitude</label>
+        <span></span>
+        <span>0</span>
+        <input id="param-noise" type="range" min="0" max="5" step="0.01" value="1">
+        <span>5</span>
+
+        <label for="param-speed">Speed</label>
+        <span></span>
+        <span>0</span>
+        <input id="param-speed" type="range" min="0" max="0.1" step="0.001" value="0.03">
+        <span>0.1</span>
+      </div>
+    </div>
+    <div id="control-div">
+      <input id="restart-button" type="button" value="restart" onclick="initialize();">
+    </div>
+  </body>
+</html>

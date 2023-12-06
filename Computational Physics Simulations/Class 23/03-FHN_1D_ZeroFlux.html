@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+<!--&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&-->
+<!-- Header of the HTML file. Usually, all libraries and scripts are    -->
+<!-- placed in this section of the HTML file.                           -->
+<!--&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&-->
+<head>
+    <!--    MathJax is used to show equations! 
+            The following section sets up the MathJax environment.  -->
+    <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+      tex2jax: {inlineMath: [['$','$'], ['\\(','\\)']]},
+      displayAlign: "left",
+      TeX :{
+        style: {
+            "padding": "10px 20px",
+        }
+
+      }
+    });
+    </script>
+    <!--    The following line imports the MathJax library          -->
+    <script 
+        type="text/javascript" async 
+        src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_CHTML">
+    </script>
+    <!-- including AkPlot.js for plotting purposes. -->
+    <script src='AkPlot.js'></script>
+</head>
+
+<!--&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&-->
+<!-- Main body of the html file                                         -->
+<!--&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&-->
+<body onload='init();'> <!--    when the HTML file is loaded the function 
+                                init() is executed.                     -->
+<h1>FitzHugh-Nagumo (Zero Flux)</h1>   <!-- Header of the page             -->
+<!-- The following canvas is used for plotting -->
+<canvas id="c0"             
+        width="500" 
+        height="400" 
+        style='border:2px solid #eeeeee , display:"none"' >
+</canvas>
+
+<p>
+    \[
+        \frac{du}{dt} = u(1-u)(u-a) - v 
+    \]
+
+    \[
+        \frac{dv}{dt} = \epsilon (bu-v+\delta)
+    \]
+</p>
+
+<input type='button' onclick='init();' value='Initialize'></input>
+<input type='button' onclick='running=!running;' value='Run/Stop'></input></br>
+<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->
+<!-- the table of values                                                -->
+<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->
+<table>
+    <tr>
+        <td>$a$</td>
+        <td><input  type='number' id='a' 
+                    step=0.01 value=0.1 onchange='init()'></td>
+    </tr>
+    <tr>
+        <td>$b$</td>
+        <td><input  type='number' id='b' 
+                    step=0.01 value=0.3 
+                    onchange='init()'></td>
+    </tr>
+    <tr>
+        <td>$\delta$</td>
+        <td><input  type='number' id='delta' 
+                    step=0.01 value=0.0 
+                    onchange='init()'></td>
+    </tr>
+    <tr>
+        <td>$\epsilon$</td>
+        <td><input  type='number' id='epsilon' 
+                    step=0.01 value=0.01 
+                    onchange='init()'></td>
+    </tr>
+    <tr>
+        <td>$u_0$</td>
+        <td><input  type='number' id='u0' 
+                    step=0.01 value=1.5 
+                    onchange='init()'></td>
+    </tr>
+    <tr>
+        <td>$v_0$</td>
+        <td><input  type='number' id='v0' 
+                    step=0.01 value=0 
+                    onchange='init()'></td>
+    </tr>
+    <tr>
+        <td>$\Delta t$</td>
+        <td><input  type='number' id='dt' 
+                    value=0.05 
+                    onchange='init()'></td>
+    </tr>
+    <tr>
+        <td>$\Delta x$</td><td>
+            <input  type='number' id='dx' 
+                    value=0.05 
+                    onchange='init()'></td>
+        </td>
+    </tr>
+    <tr>
+        <td>$L$</td><td>
+            <input  type='number' id='L' 
+                    value=10.0 
+                    onchange='init()'></td>
+        </td>
+    </tr>
+    <tr>
+        <td>Final Time</td>
+        <td><input  type='number' id='finalTime' 
+                    value=500 
+                    onchange='init()'></td>
+    </tr>
+    <tr>
+        <td>wait</td>
+        <td><input  type='number' id='wait' value=5 ></td>
+    </tr>
+</table>
+
+<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->
+<!-- Computational script                                               -->
+<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->
+<script>
+
+function getNum(id){ /* gets the number from the GUI using the id */
+    return eval(document.getElementById(id).value) ;
+}
+
+/*========================================================================
+ * creating the map
+ *========================================================================
+ */ 
+var c0 = document.getElementById('c0') ;
+var plt0 = new Plot(c0) ;
+plt0.margins.left = 70 ;
+plt0.margins.right = 20 ;
+plt0.margins.top=10 ;
+plt0.xlabel = 'x' ;
+plt0.ylabel = '';
+plt0.yticks.precision = 2 ;
+plt0.xticks.precision = 2 ;
+plt0.xticks.noDivs = 5 ;
+
+ur = {min:-1., max:1.5} ;
+vr = {min:-2, max:2} ;
+plt0.xlimits = [0.,getNum('L')] ;
+plt0.ylimits = [ur.min,ur.max] ;
+plt0.legend = 'on' ;
+plt0.grid = 'on' ;
+plt0.legend.location = [c0.width-60,20] ;
+plt0.init() ;
+function click(e){
+     for(var i=0; i<N; i++){
+         if (Math.abs(x[i]-e.x)<0.1){
+             u[i]=1. ;
+         }
+     }
+}
+plt0.addClickListener(click) ;
+
+var ucrv = plt0.addCurveFromArrays(); ucrv.name = 'u' ;
+var vcrv = plt0.addCurveFromArrays(); vcrv.name = 'v' ;
+
+var a, b, delta, epsilon ;
+var u, v, x, u0 , v0, dt ;
+var lap_u ;
+var diffCoef ;
+var L, dx, N ;
+var running=false ;
+
+function init(){
+    a = getNum('a') ;
+    b = getNum('b') ;
+    delta = getNum('delta') ;
+    epsilon = getNum('epsilon') ;
+    dt = getNum('dt') ;
+    dx = getNum('dx') ;
+    L  = getNum('L' ) ;
+    plt0.xlimits = [0,L] ;
+    plt0.init() ;
+    N  = Math.floor(L/dx)+1. ;
+    
+    u  = new Float32Array(N) ;
+    v  = new Float32Array(N) ;
+    x  = new Float32Array(N) ;
+    lap_u = new Float32Array(N) ;
+
+    for(var i=0; i<N; i++){
+        x[i]= i*dx ;
+        u[i]= 0 ;
+        v[i]= 0 ;
+    }
+    diffCoef= 0.001 ;
+    ucrv.plot(x,u) ;
+    vcrv.plot(x,v) ;
+    run() ;
+}
+function run(){
+    if(running){
+        for(var jj=0; jj<40 ; jj++){
+            lap_u[0] = 2.*(u[1]-u[0]) ;
+            lap_u[N-1] = 2.*(u[N-2]-u[N-1]) ;
+            for(var i=1;i<N-1;i++){
+                lap_u[i] = u[i-1]-2.*u[i]+u[i+1] ;
+            }
+
+            var du2dt, dv2dt ;
+            for(var i=0; i<N; i++){
+                du2dt = lap_u[i]*diffCoef/(dx*dx) 
+                    +  u[i]*(1.-u[i])*(u[i]-a) - v[i] ;
+                dv2dt = epsilon*(b*u[i] - v[i] + delta ) ;
+                u[i] += du2dt*dt ;
+                v[i] += dv2dt*dt ;
+            }
+        }
+    }
+    ucrv.plot(x,u) ;
+    vcrv.plot(x,v) ;
+    requestAnimationFrame(run) ;
+} ;
+
+</script>
+</body>
+</html>

@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Reynolds flocking demo</title>
+    <script>
+      'use strict';
+
+      let canvas;
+      let ctx;
+
+      let in_num;
+      let in_radius;
+      let in_noise;
+      let in_speed;
+      let in_cohesion;
+      let in_separation;
+      let in_alignment;
+
+      const shape_height = 5;
+      const shape_base = 2.5;
+
+      const max_agents = 1000;
+      const pos = new Float32Array(2*max_agents);
+      const vel = new Float32Array(2*max_agents);
+
+      const size = 512;
+
+      let dt = 0.2;
+      let num_agents = 100;
+      let noise_mag = 5;
+      let radius = 50;
+
+      let w_cohesion = 1;
+      let w_separation = 20;
+      let w_alignment = 1;
+
+      const min_speed = 1;
+      let max_speed = 8;
+      const max_accel = 8;
+
+      function set_context() {
+        canvas = document.getElementById("display-canvas");
+        ctx = canvas.getContext("2d");
+
+        in_num = document.getElementById("param-num-agents");
+        in_radius = document.getElementById("param-radius");
+        in_noise = document.getElementById("param-noise");
+        in_speed = document.getElementById("param-speed");
+        in_cohesion = document.getElementById("param-cohesion");
+        in_separation = document.getElementById("param-separation");
+        in_alignment = document.getElementById("param-alignment");
+      }
+
+      function initialize() {
+        for (let i = 0; i < max_agents; ++i) {
+          pos[2*i] = size*Math.random();
+          pos[2*i+1] = size*Math.random();
+
+          const dir = 2*Math.PI*Math.random();
+          const mag = max_speed*Math.random();
+          vel[2*i] = mag*Math.cos(dir);
+          vel[2*i+1] = mag*Math.sin(dir);
+        }
+      }
+
+      function diff(i, j) {
+        const ix = pos[2*i];
+        const iy = pos[2*i+1];
+        const jx = pos[2*j];
+        const jy = pos[2*j+1];
+
+        let dx = ix - jx;
+        if (dx > 0.5*size) dx -= size;
+        else if (dx < -0.5*size) dx += size;
+        let dy = iy - jy;
+        if (dy > 0.5*size) dy -= size;
+        else if (dy < -0.5*size) dy += size;
+
+        return [dx, dy];
+      }
+
+      function norm(x, y) {
+        return Math.sqrt(x*x+y*y);
+      }
+
+      function normalize(x, y) {
+        const n = norm(x, y);
+        return [x/n, y/n];
+      }
+
+      function update() {
+        const sqradius = radius*radius;
+        for (let i = 0; i < num_agents; ++i) {
+          let cx = 0;
+          let cy = 0;
+          let sx = 0;
+          let sy = 0;
+          let ax = 0;
+          let ay = 0;
+
+          let neighbors = 0;
+          for (let j = 0; j < num_agents; ++j) {
+            if (i === j) continue;
+
+            const [dx, dy] = diff(j, i);
+            const sqdist = dx*dx+dy*dy;
+
+            if (sqdist < sqradius) {
+              neighbors += 1;
+
+              const dvx = vel[2*j] - vel[2*i];
+              const dvy = vel[2*j+1] - vel[2*i+1];
+
+              cx += dx;
+              cy += dy;
+              sx -= dx/sqdist;
+              sy -= dy/sqdist;
+              ax += dvx;
+              ay += dvy;
+            }
+          }
+
+          if (neighbors !== 0) {
+            cx /= neighbors;
+            cy /= neighbors;
+            ax /= neighbors;
+            ay /= neighbors;
+          }
+
+          pos[2*i] += dt*vel[2*i];
+          pos[2*i+1] += dt*vel[2*i+1];
+
+          let accx = w_cohesion*cx + w_separation*sx + w_alignment*ax;
+          let accy = w_cohesion*cy + w_separation*sy + w_alignment*ay;
+
+          if (norm(accx, accy) > max_accel) {
+            const [ux, uy] = normalize(accx, accy);
+            accx = max_accel * ux;
+            accy = max_accel * uy;
+          }
+
+          vel[2*i] += dt*(accx+noise_mag*(Math.random()-0.5));
+          vel[2*i+1] += dt*(accy+noise_mag*(Math.random()-0.5));
+
+          if (pos[2*i] >= size) pos[2*i] -= size;
+          else if (pos[2*i] < 0) pos[2*i] += size;
+          if (pos[2*i+1] >= size) pos[2*i+1] -= size;
+          else if (pos[2*i+1] < 0) pos[2*i+1] += size;
+
+          if (norm(vel[2*i], vel[2*i+1]) > max_speed) {
+            const [ux, uy] = normalize(vel[2*i], vel[2*i+1]);
+            vel[2*i] = max_speed * ux;
+            vel[2*i+1] = max_speed * uy;
+          } else if (norm(vel[2*i], vel[2*i+1]) < min_speed) {
+            const [ux, uy] = normalize(vel[2*i], vel[2*i+1]);
+            vel[2*i] = min_speed * ux;
+            vel[2*i+1] = min_speed * uy;
+          }
+        }
+      }
+
+      function draw_triangle(i) {
+        const [nvx, nvy] = normalize(vel[2*i], vel[2*i+1]);
+        const px = pos[2*i];
+        const py = pos[2*i+1];
+
+        const p1x = px + 0.5*shape_height*nvx;
+        const p1y = py + 0.5*shape_height*nvy;
+
+        const bx = px - 0.5*shape_height*nvx;
+        const by = py - 0.5*shape_height*nvy;
+
+        const p2x = bx + 0.5*shape_base*nvy;
+        const p2y = by - 0.5*shape_base*nvx;
+
+        const p3x = bx - 0.5*shape_base*nvy;
+        const p3y = by + 0.5*shape_base*nvx;
+
+        const wscale = canvas.width / size
+        const hscale = canvas.height / size
+
+        ctx.beginPath();
+        ctx.moveTo(wscale*p1x, hscale*p1y);
+        ctx.lineTo(wscale*p2x, hscale*p2y);
+        ctx.lineTo(wscale*p3x, hscale*p3y);
+        ctx.fill();
+      }
+
+      function draw_all() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        for (let i = 0; i < num_agents; ++i) {
+          draw_triangle(i);
+        }
+      }
+
+      function read_input() {
+        num_agents = Number(in_num.value);
+        radius = Number(in_radius.value);
+        noise_mag = Number(in_noise.value);
+        max_speed = Number(in_speed.value);
+        w_cohesion = Number(in_cohesion.value);
+        w_separation = Number(in_separation.value);
+        w_alignment = Number(in_alignment.value);
+      }
+
+      function start() {
+        set_context();
+        read_input();
+        document.getElementById("param-div").oninput = () => read_input();
+        initialize();
+        run();
+      }
+
+      function run() {
+        draw_all();
+        update()
+        window.requestAnimationFrame(run)
+      }
+    </script>
+    <style>
+      #display-canvas {
+        border: 1px solid black;
+      }
+
+      #display-canvas-div {
+        float: left;
+        margin-right: 2em;
+      }
+
+      div {
+        padding-bottom: 2em;
+      }
+
+      #param-div {
+        display: flex;
+      }
+
+      #grid-container-div {
+        display: grid;
+        grid-template-columns: max-content 1fr max-content max-content max-content;
+        grid-column-gap: 0.5em;
+        padding: 0;
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body onload="start();">
+    <div id="display-canvas-div">
+      <canvas id="display-canvas" width="512" height="512"></canvas>
+    </div>
+    <div id="param-div">
+      <div id="grid-container-div">
+        <label for="param-num-agents">Number of agents</label>
+        <span></span>
+        <span>1</span>
+        <input id="param-num-agents" type="range" min="1" max="1000" step="1" value="100">
+        <span>1000</span>
+
+        <label for="param-radius">Neighborhood radius</label>
+        <span></span>
+        <span>0</span>
+        <input id="param-radius" type="range" min="0" max="100" step="1" value="50">
+        <span>100</span>
+
+        <label for="param-noise">Noise magnitude</label>
+        <span></span>
+        <span>0</span>
+        <input id="param-noise" type="range" min="0" max="20" step="0.01" value="5">
+        <span>20</span>
+
+        <label for="param-speed">Maximum speed</label>
+        <span></span>
+        <span>1</span>
+        <input id="param-speed" type="range" min="1" max="20" step="1" value="8">
+        <span>20</span>
+
+        <label for="param-cohesion">Cohesion weight</label>
+        <span></span>
+        <span>0</span>
+        <input id="param-cohesion" type="range" min="0" max="5" step="0.1" value="1">
+        <span>5</span>
+
+        <label for="param-separation">Separation weight</label>
+        <span></span>
+        <span>0</span>
+        <input id="param-separation" type="range" min="0" max="50" step="0.1" value="20">
+        <span>50</span>
+
+        <label for="param-alignment">Alignment weight</label>
+        <span></span>
+        <span>0</span>
+        <input id="param-alignment" type="range" min="0" max="5" step="0.1" value="1">
+        <span>5</span>
+      </div>
+    </div>
+    <div id="control-div">
+      <input id="restart-button" type="button" value="restart" onclick="initialize();">
+    </div>
+  </body>
+</html>
