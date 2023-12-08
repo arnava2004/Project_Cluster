@@ -1,6 +1,6 @@
-# Project-Hm
+# Project-Cluster
 
 # Cluster of personal projects grouped into this one repository
 
-# Will update the readme and at some point will split this up into seperate repositories to be cool
+# I will update the readme and at some point and will split this up into separate repositories when all of my work is uploaded
 
